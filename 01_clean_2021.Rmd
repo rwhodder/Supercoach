@@ -1,0 +1,209 @@
+---
+title: "sc_2021_joined"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+```{r Packages, message = FALSE}
+library(scales)
+library(tidyverse)
+
+
+source("Functions/get_data_and_clean_Function.R")
+source("Functions/games_played_Function.R")
+```
+
+```{r PITTY API list manipulation}
+
+# You can do this for each element (name, position, salarary ect) you want in the data
+
+### Price
+data <- supercoach_2021
+price <- numeric(length = length(data))
+
+for(i in 1:length(data)) {
+  output <- data[[i]][["player_stats"]][[1]][["price"]]
+  price[i] <- output
+}
+
+price <- as.vector(price)
+```
+
+```{r Get data from fitzRoy and games played , message = FALSE}
+
+
+# get past 10 years data from fitzroy and clean 
+sql_data <- GetDataCleanMySQL()
+
+# Get data from 2002 to be able to calculate games_played
+afl_data <- GetDataCleanFitzRoy()
+
+# Calculate games played using GamesPlayed function
+afl_data2 <- GamesPlayed(afl_data)
+
+# select only relevant variables
+afl_data2 <- afl_data2 %>% select(c(id, games_played)) %>% group_by(id) %>% summarise(games_played = max(games_played)) %>% mutate(ID = id)
+
+merged_main_data <- merge(sql_data, afl_data2, by = "ID")
+
+
+# remove unneeded variables and change team names to abbreivations to fit with pricing dataframe
+main_data <- merged_main_data %>%
+  select(c(ID, helper, first_name, surname, position, games_played, season, round, team, date, supercoach, disposals)) %>%
+  mutate(team = case_when(team == "Fremantle"               ~ "FRE",
+                          team == "Adelaide"                ~ "ADE",
+                          team == "Carlton"                 ~ "CAR",
+                          team == "Essendon"                ~ "ESS",
+                          team == "Geelong"                 ~ "GEE",
+                          team == "Hawthorn"                ~ "HAW",
+                          team == "West Coast"              ~ "WCE",
+                          team == "North Melbourne"         ~ "NME",
+                          team == "Port Adelaide"           ~ "POR",
+                          team == "Gold Coast"              ~ "GCS",
+                          team == "Sydney"                  ~ "SYD",
+                          team == "Collingwood"             ~ "COL",
+                          team == "St Kilda"                ~ "STK",
+                          team == "Western Bulldogs"        ~ "WBD",
+                          team == "Richmond"                ~ "RIC",
+                          team == "Melbourne"               ~ "MEL",
+                          team == "Brisbane Lions"          ~ "BRI",
+                          team == "Greater Western Sydney"  ~ "GWS")) %>%
+  mutate(helper2 = paste0(first_name," ",surname,team))
+
+
+```
+
+```{r Get position and price data from excel, message = FALSE}
+
+# get prices and postion data for 2021
+prices_position_2021 <- read_csv("Data/2021_prices_positions.csv")
+
+# create helper column to be able to merge
+price_data <- prices_position_2021 %>%
+  mutate(helper2 = paste0(Name, Team))
+```
+
+
+```{r TALENT}
+# Talent = career high season average
+# weighted out of /30
+
+talent <- 
+  main_data %>%
+  group_by(ID, season, helper2) %>%
+  summarise(season_avg = mean(supercoach)) %>%
+  group_by(ID) %>%
+  summarise(talent = round(max(season_avg), 2)) %>%
+  ungroup() %>%
+# rescale to talent from 0-30
+  mutate(weighted_talent = round(rescale(talent, to = c(0.01, 30)), 2))
+```
+
+```{r OPPURTUNITY USAGE}
+# Opportunity = disposals / team disposals
+# weighted out of /25
+
+opportunity <- 
+  main_data %>%
+  filter(season == 2020) %>%
+  group_by(ID) %>%
+  summarise(disposal_mean = mean(disposals)) %>%
+  ungroup() %>%
+  merge(main_data) %>%
+  filter(season == 2020) %>%
+  group_by(ID, helper2) %>%
+  summarise(opportunity = round(case_when(team == "FRE" ~ round((disposal_mean/299.9)*100,2),
+                                    team == "ADE" ~ round((disposal_mean/282.5)*100,2),
+                                    team == "CAR" ~ round((disposal_mean/281.2)*100,2),
+                                    team == "ESS" ~ round((disposal_mean/302.4)*100,2),
+                                    team == "GEE" ~ round((disposal_mean/310.4)*100,2),
+                                    team == "HAW" ~ round((disposal_mean/314.9)*100,2),
+                                    team == "WCE" ~ round((disposal_mean/286.3)*100,2),
+                                    team == "NME" ~ round((disposal_mean/300.1)*100,2),
+                                    team == "POR" ~ round((disposal_mean/308.7)*100,2),
+                                    team == "GCS" ~ round((disposal_mean/285.4)*100,2),
+                                    team == "SYD" ~ round((disposal_mean/292.8)*100,2),
+                                    team == "COL" ~ round((disposal_mean/314.9)*100,2),
+                                    team == "STK" ~ round((disposal_mean/292.4)*100,2),
+                                    team == "WBD" ~ round((disposal_mean/309.9)*100,2),
+                                    team == "RIC" ~ round((disposal_mean/290.2)*100,2),
+                                    team == "MEL" ~ round((disposal_mean/296.5)*100,2),
+                                    team == "BRI" ~ round((disposal_mean/279.5)*100,2),
+                                    team == "GWS" ~ round((disposal_mean/298.5)*100,2), 2))) %>%
+  ungroup() %>%
+  # rescale to talent from 0-30
+  mutate(weighted_opportunity = round(rescale(opportunity, to = c(0.01, 15)), 2)) %>%
+  unique()
+
+```
+
+```{r DURABILITY LEVEL}
+# Durability Level = % of games played last two years
+# weighted out of /10
+
+# 2019 games max = 23
+# 2020 games max = 18
+# max possible games = 41
+durability <-
+  main_data %>%
+  filter(season >2018 & date < "2020-09-22" & round < 24) %>%
+  mutate(played_game = 1) %>%
+  group_by(ID, helper2) %>%
+  arrange(date) %>%
+  mutate(games_played = cumsum(played_game),
+         durability = round((games_played/41)*100, 2)) %>%
+  group_by(ID) %>%
+  dplyr::filter(date == max(date)) %>%
+  ungroup() %>%
+# rescale to talent from 1-10
+  mutate(weighted_durability = round(rescale(durability, to = c(0.01, 15)), 2)) %>%
+  select(c(ID, durability, weighted_durability))
+  
+  
+
+```
+
+```{r FORM}
+# Form = 2nd half of the season average 
+# weighted out of /15
+# 2nd of August is the mid point of the 2020 season
+
+form <-
+  main_data %>%
+  filter(date > 2020-08-03) %>%
+  mutate(played_game = 1) %>%
+  group_by(ID) %>%
+  arrange(date) %>%
+  mutate(games_played = cumsum(played_game)) %>%
+  filter(games_played > 3) %>%
+  summarise(form = round(mean(supercoach), 2)) %>%
+# rescale form to 0.1 - 15
+  mutate(weighted_form = round(rescale(form, to = c(0.01, 10)), 2)) %>%
+  select(c(ID, form, weighted_form))
+
+
+
+
+```
+
+
+```{r Combine all FACTORS}
+
+all_factors <- merge(opportunity, talent)
+all_factors <- merge(all_factors, durability)
+all_factors <- merge(all_factors, form)
+
+final <- all_factors %>%
+  unique() %>%
+  group_by(ID) %>%
+  mutate(total_rating = round(sum(weighted_talent, weighted_opportunity, weighted_durability, weighted_form), 2)) %>%
+  select(c(ID, name = helper2, "talent(30)" = talent, "opportunity(15)" = opportunity, "durability(15)" = durability, "form(15)" = form,
+           weighted_talent, weighted_opportunity, weighted_durability, weighted_form, total_rating))
+
+```
+
