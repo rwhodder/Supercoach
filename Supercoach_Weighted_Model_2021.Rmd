@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r Packages, message = FALSE}
 library(scales)
 library(tidyverse)
-
+library(editData)
 
 source("Functions/get_data_FITZROY_Function.R")
 source("Functions/get_data_SQL_Function.R")
@@ -70,6 +70,8 @@ talent <-
   summarise(talent = round(max(season_avg), 2)) %>%
   ungroup() 
   
+
+
 ```
 
 ```{r OPPURTUNITY USAGE}
@@ -173,10 +175,10 @@ consistency <-
 
 ```{r Combine all FACTORS}
 
-all_factors <- merge(opportunity, talent)
-all_factors <- merge(all_factors, durability)
-all_factors <- merge(all_factors, form)
-all_factors <- merge(all_factors, consistency)
+all_factors <- left_join(talent, opportunity)
+all_factors <- left_join(all_factors, durability)
+all_factors <- left_join(all_factors, form)
+all_factors <- left_join(all_factors, consistency)
 
 final <- all_factors %>%
   unique() %>%
@@ -241,18 +243,42 @@ final_updated <- final %>%
 talent_weight      = 20
 opportunity_weight = 13
 durability_weight  = 8
-consistency_weight = 10
+consistency_weight = 5
 form_weight        = 8
 
 # ---------------------------------------------------------------------------------------------------------------------#
 
 # combine price and supercoach data
 
-complete_data <- left_join(price_data, final_updated, by = "helper2")
+joined_data <- left_join(price_data, final_updated, by = "helper2")
 
+
+# Fix any factors that are 0's or NA
+fixed_data <- joined_data %>% 
+  mutate(talent      = case_when(is.na(talent)      ~ `2020_Average`,    TRUE ~ talent),
+         opportunity = case_when(is.na(opportunity) ~ 0,                 TRUE ~ opportunity),
+         durability  = case_when(is.na(durability)  ~ (`2020_Games`/17), TRUE ~ durability),
+         form        = case_when(is.na(form)        ~ `2020_Average`,    TRUE ~ form),
+         consistency = case_when(is.na(consistency) ~ 0,                 TRUE ~ consistency),
+         manual_weight = 0) %>%
+  select(-c(ID, name, dollar_Per_Point)) %>%
+  select(helper2, everything())
+
+
+
+```
+
+
+```{r SAVE fixed_data for use in shiny app}
+
+write_csv(fixed_data, "sc_data_for_shiny.csv")
+```
+
+
+```{r RESCALE and PREDICT}
 
 # RESCALE VARIABLES
-complete_data <- complete_data %>%
+complete_data <- fixed_data %>%
   mutate(opportunity = case_when(Position == "RUC" ~ (1.75 * opportunity), TRUE ~ opportunity)) %>%
   mutate(weighted_talent      = round(rescale(talent,      to = c(0.01, talent_weight)), 2)) %>%
   mutate(weighted_opportunity = round(rescale(opportunity, to = c(0.01, opportunity_weight)), 2)) %>%
@@ -262,17 +288,9 @@ complete_data <- complete_data %>%
   mutate(rating = (weighted_talent + weighted_opportunity + weighted_durability + weighted_form + weighted_consistency))
 
 
-fwd <- complete_data %>% dplyr::filter(Position == "FWD")
-def <- complete_data %>% dplyr::filter(Position == "DEF")
-mid <- complete_data %>% dplyr::filter(Position == "MID")
-ruc <- complete_data %>% dplyr::filter(Position == "RUC")
-```
 
-
-
-```{r}
 ######################
-# FORWARD PREDICTIONS  
+# PREDICTIONS
 ######################
 
 # create fitlered datasets for STEP 3
@@ -296,7 +314,7 @@ rating_avg    <- mean(rating_playing$rating)
 diff_factor   <- (avg_last_year/rating_avg)
 
 # STEP 5: multiple rating by the difference factor to get PROJ SCORE
-proj_score  <- complete_data %>% mutate(proj_score = rating * diff_factor)
+proj_score  <- complete_data %>% mutate(proj_score = (rating * diff_factor) + manual_weight)
 
 # STEP 6: multiple proj score by magic number to get PROJ SALARY
 proj_price  <- proj_score %>% mutate(proj_salary = proj_score * magic_number)
@@ -307,14 +325,14 @@ proj_final  <- proj_price %>% mutate(proj_salary     = round(proj_salary * 0.90,
                                          value       = round(proj_salary - Price, 0)) %>%
   select(c(Name, Team, Position, proj_score, proj_salary, Price, value, `2020_Games`, `2020_Average`,
            talent, opportunity, durability, form, consistency, weighted_talent, weighted_opportunity,
-           weighted_durability, weighted_form, weighted_consistency)) %>%
+           weighted_durability, weighted_form, weighted_consistency, manual_weight)) %>%
   arrange(desc(proj_salary))
 
 ```
 
 
 ```{r SAVE to csv}
-
+124*0.92
 write.csv(proj_final, "projections_2021.csv")
 ```
 
