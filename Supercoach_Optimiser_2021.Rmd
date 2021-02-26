@@ -9,148 +9,79 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ```{r LOAD packages}
-
+library(readxl)
 library(tidyverse)
 library(lpSolve)
+library(gdata)
 ```
 
-```{r READ data}
+```{r READ data, message = FALSE, warning = FALSE}
 
-supercoach_proj <- read_csv("projections_2021.csv")
+supercoach_proj <- read_excel("Data/projections_2021_manual_input.xlsx") %>% select(c(Name, Team, Position, Proj_Score = updated_proj, Price))
+rookies         <- read_csv("Data/rookies.csv")          %>% select(c(Name, Team, Position, Proj_Score = proj_score, Price))
+bench_1         <- read_csv("Data/rookies.csv")          %>% select(c(Bench_Name, Bench_Position, Bench_Price)) %>% na.omit()
+```
+
+```{r ATTACH rookies to supercoach_proj}
+dataset <- supercoach_proj %>% 
+  dplyr::filter(Price > 207300) %>%
+  rbind(rookies) %>%
+  na.omit()
 ```
 
 
-```{r Optimiser}
 
-dataset <- supercoach_proj %>% na.omit()
+```{r OPTIMSER}
+# count the unique players
+unique_players = unique(dataset$Name)
 
-name <- dataset$Name
-pos  <- dataset$Position
-pts  <- dataset$proj_score
-cost <- dataset$Price
+# calcualte bench cost
+bench_cost <- sum(bench_1$Bench_Price)
 
+# define the objective for the solver
+obj = dataset$Proj_Score
 
-f <- pts
+# create a constraint matrix for the solver
+con = rbind(t(model.matrix(~ Position + 0, dataset)), #Positions
+            t(model.matrix(~ Name     + 0, dataset)), #DupPlayers
+            rep(1,nrow(dataset)),                     #TotPlayers
+            dataset$Price)                            #MaxSalary
 
-
-maxPts <- 10000
-lineup_no <- 10
-
-
-
-
-lineups <- vector("list", length(lineup_no))
-for(i in 1:lineup_no)
-{
-
-  
-####################
-#Constraints
-###################
-
-# Prepare constraint matrix of zeros
-A <- matrix(0, nrow = 6, ncol = nrow(dataset))       # row = 5, columns = number of rows in orginal dataset
+# set the direction for each of the constraints
+dir = c("==", #FWD
+        "==", #RUC
+        "==", #MID
+        "==", #DEF
+        rep('<=',length(unique_players)), #DupPlayers
+        "==", #TotPlayers
+        "<=") #MaxSalary
 
 
-#Designate the positions that are equivalent to each other when generating the optimal lineup
-#There are 4 distinct positions and 1 constraint in which salary is < 50,000
-#I.e. A player with the position M/F can fill the M or the F position
-#Add a "1" to all position that can fill that position slot
+# set the limits for the right-hand side of the constraints
+rhs = c(6, #FWD
+        6, #RUC
+        8, #MID
+        2, #DEF
+        rep(1,length(unique_players)), #DupPlayers
+        22, #TotPlayers
+        10000000 - bench_cost)        #MaxSalary
 
 
-#Set F parameters
-j<-1
-k<-1
-for (k in 1:nrow(dataset)){
-  if (dataset$Position[k] == "FWD")
-    A[j,k]<-1
-}
+# find the optimal solution using the solver
+result = lp("max", obj, con, dir, rhs, all.bin = TRUE)
 
-#Set M parameters
-j<-2
-k<-1
-for (k in 1:nrow(dataset)){
-  if (dataset$Position[k] == "MID")
-    A[j,k]<-1
-}
-
-
-#Set D parameters
-j<-3
-k<-1
-for (k in 1:nrow(dataset)){
-  if (dataset$Position[k] == "DEF")
-    A[j,k]<-1
-}
-
-
-#Set R parameters
-j<-4
-k<-1
-for (k in 1:nrow(dataset)){
-  if (dataset$Position[k] == "RUC")
-    A[j,k]<-1
-}
-
-
-
-
-A[5, ] <- dataset$Price               # salary <= 50000
-A[6, ] <- f
-
-# Prepare input for LP solver
-dfs_objective        <- f
-const_matrix         <- A
-const_direction      <- c("==",
-                          "==",
-                          "==",
-                          "==",
-                          "<=",
-                          "<=")
-const_righthand_side <- c(6,
-                          8,
-                          6,
-                          2,
-                          10000000,
-                          maxPts)
-
-
-##################################
-#Run optimal lineup with lpSolve
-##################################
-
-# Generate optimal lineup with lp solve
-
-solve <- lp(direction = "max", dfs_objective, # maximize objective function
-            const_matrix,
-            const_direction,
-            const_righthand_side,   # constraints
-            all.bin = TRUE)         # use binary variables only
-
-### View the solution
-score      <- sum(pts[solve$solution > 0])                # gets predicted score (by summing all solution that = 1)
-indicators <- which(solve$solution == 1)                            # filter only solution == 1 (filters optimal lineup)
-salary     <- sum(dataset$Price[indicators])                       # gets salary spent                                         
-lineup <- dataset[indicators, ]                                   # Create dataset with optimal lineup 
-
-
-  lineup <- lineup %>% arrange(match(Position, c("FWD", "RUC", "MID", "DEF")), desc(Price)) # order lineup by position
-  lineupNumber <- i
-  print(lineupNumber)
-  print(score)
-  print(salary)
-  
-  print(lineup)
-  
-  lineups[[i]] <- lineup
-  maxPts <- score - 0.0001
-  
-  
+# create a table for the players that are in optimal solution
+solindex = which(result$solution==1)
+optsolution = dataset[solindex,]
+optsolution <- optsolution %>%
+  mutate(Help = case_when(Position == "FWD" ~ 1,
+                          Position == "RUC" ~ 2,
+                          Position == "MID" ~ 3,
+                          Position == "DEF" ~ 4)) %>%
+  arrange(desc(Help))
   
 
-  final_df <- as.data.frame(lineup)
-                      
-
-  }
+sum(optsolution$Price)
+sum(optsolution$Proj_Score)
 ```
 

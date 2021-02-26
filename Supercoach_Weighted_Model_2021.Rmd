@@ -332,8 +332,8 @@ proj_final  <- proj_price %>% mutate(proj_salary     = round(proj_salary * 0.90,
 
 
 ```{r SAVE to csv}
-124*0.92
-write.csv(proj_final, "projections_2021.csv")
+
+write.csv(proj_final, "Data/projections_2021.csv")
 ```
 
 
