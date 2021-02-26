@@ -66,6 +66,17 @@ talent <-
   main_data %>%
   group_by(ID, season, helper2) %>%
   summarise(season_avg = mean(supercoach)) %>%
+  mutate(season_avg    = case_when(season == 2010 ~ (season_avg - 30),
+                                   season == 2011 ~ (season_avg - 27),
+                                   season == 2012 ~ (season_avg - 24),
+                                   season == 2013 ~ (season_avg - 21),
+                                   season == 2014 ~ (season_avg - 18),
+                                   season == 2015 ~ (season_avg - 15),
+                                   season == 2016 ~ (season_avg - 12),
+                                   season == 2017 ~ (season_avg - 9),
+                                   season == 2018 ~ (season_avg - 6),
+                                   season == 2019 ~ (season_avg - 3),
+                                   season == 2020 ~ (season_avg - 1))) %>%
   group_by(ID, helper2) %>%
   summarise(talent = round(max(season_avg), 2)) %>%
   ungroup() 
@@ -314,14 +325,14 @@ rating_avg    <- mean(rating_playing$rating)
 diff_factor   <- (avg_last_year/rating_avg)
 
 # STEP 5: multiple rating by the difference factor to get PROJ SCORE
-proj_score  <- complete_data %>% mutate(proj_score = (rating * diff_factor) + manual_weight)
+proj_score  <- complete_data %>% mutate(proj_score = (rating * diff_factor))
 
 # STEP 6: multiple proj score by magic number to get PROJ SALARY
 proj_price  <- proj_score %>% mutate(proj_salary = proj_score * magic_number)
 
 # ADDITIONAL STEP: if values are way out of line, decrease or increase based on max score
-proj_final  <- proj_price %>% mutate(proj_salary     = round(proj_salary * 0.90, 0),
-                                         proj_score  = round(proj_score  * 0.92, 0),
+proj_final  <- proj_price %>% mutate(proj_salary     = round(proj_salary * 0.98, 0),
+                                         proj_score  = round(proj_score  * 0.96, 0),
                                          value       = round(proj_salary - Price, 0)) %>%
   select(c(Name, Team, Position, proj_score, proj_salary, Price, value, `2020_Games`, `2020_Average`,
            talent, opportunity, durability, form, consistency, weighted_talent, weighted_opportunity,

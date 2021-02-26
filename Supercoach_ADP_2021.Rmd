@@ -7,22 +7,35 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+```{r READ data, message = FALSE, warning = FALSE}
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+supercoach_proj <- read_excel("Data/projections_2021_manual_input.xlsx") %>% select(c(Name, Team, Position, Proj_Score = updated_proj, Price))
+rookies         <- read_csv("Data/rookies.csv")          %>% select(c(Name, Team, Position, Proj_Score = proj_score, Price))
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+# attach rookies to supercoach_proj
+dataset <- supercoach_proj %>% 
+  dplyr::filter(Price > 207300) %>%
+  rbind(rookies) %>%
+  na.omit()
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+```{r GET REPLACMENT LEVEL VALUES}
+# get replacment level values for each position
+def_replacment <- dataset %>% filter(Position == "DEF") %>% arrange(desc(Proj_Score)) %>% slice(40) %>% select(replace_value = Proj_Score)
+mid_replacment <- dataset %>% filter(Position == "MID") %>% arrange(desc(Proj_Score)) %>% slice(50) %>% select(replace_value = Proj_Score)
+ruc_replacment <- dataset %>% filter(Position == "RUC") %>% arrange(desc(Proj_Score)) %>% slice(10) %>% select(replace_value = Proj_Score)
+fwd_replacment <- dataset %>% filter(Position == "FWD") %>% arrange(desc(Proj_Score)) %>% slice(40) %>% select(replace_value = Proj_Score)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+# Calculate ADP
+adp_dataset <- dataset %>% mutate(adp = case_when(Position == "DEF" ~ Proj_Score - def_replacment$replace_value,
+                                                  Position == "MID" ~ Proj_Score - mid_replacment$replace_value,
+                                                  Position == "RUC" ~ Proj_Score - ruc_replacment$replace_value,
+                                                  Position == "FWD" ~ Proj_Score - fwd_replacment$replace_value))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r SAVE AS CSV}
+write.csv(adp_dataset, "adp.csv")
+```
+
