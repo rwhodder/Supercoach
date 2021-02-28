@@ -41,7 +41,7 @@ merged_main_data <- merge(sql_data, afl_data2, by = "helper")
 
 # remove unneeded variables and change team names to abbreivations to fit with pricing dataframe
 main_data <- merged_main_data %>%
-  select(c(ID, helper, first_name, surname, games_played, season, round, team, date, supercoach, disposals)) %>%
+  select(c(ID, helper, first_name, surname, games_played, season, round, team, date, dfs_score, disposals)) %>%
   mutate(helper2 = paste0(first_name," ",surname,team))
 
 
@@ -58,6 +58,16 @@ price_data <- prices_position_2021 %>%
 ```
 
 
+```{r DFS AVERAGE}
+
+dfs_avg <-
+  main_data %>%
+  filter(season == 2020) %>%
+  group_by(ID) %>%
+  summarise(dfs_avg = mean(dfs_score)) %>%
+  unique()
+```
+
 ```{r TALENT}
 # Talent = career high season average
 
@@ -65,7 +75,7 @@ price_data <- prices_position_2021 %>%
 talent <- 
   main_data %>%
   group_by(ID, season, helper2) %>%
-  summarise(season_avg = mean(supercoach)) %>%
+  summarise(season_avg = mean(dfs_score)) %>%
   mutate(season_avg    = case_when(season == 2010 ~ (season_avg - 30),
                                    season == 2011 ~ (season_avg - 27),
                                    season == 2012 ~ (season_avg - 24),
@@ -79,7 +89,8 @@ talent <-
                                    season == 2020 ~ (season_avg - 1))) %>%
   group_by(ID, helper2) %>%
   summarise(talent = round(max(season_avg), 2)) %>%
-  ungroup() 
+  ungroup() %>%
+  unique()
   
 
 
@@ -158,7 +169,7 @@ form <-
   arrange(date) %>%
   mutate(games_played = cumsum(played_game)) %>%
   filter(games_played > 3) %>%
-  summarise(form = round(mean(supercoach), 2)) %>%
+  summarise(form = round(mean(dfs_score), 2)) %>%
   select(c(ID, form))
 
 
@@ -171,7 +182,7 @@ consistency <-
   main_data %>%
   dplyr::filter(season == 2020) %>%
   mutate(played_game = 1,
-         above_100   = ifelse(supercoach > 99, 1, 0)) %>%
+         above_100   = ifelse(dfs_score > 80, 1, 0)) %>%
   group_by(ID) %>%
   arrange(date) %>%
   mutate(games_played  = sum(played_game),
@@ -190,11 +201,12 @@ all_factors <- left_join(talent, opportunity)
 all_factors <- left_join(all_factors, durability)
 all_factors <- left_join(all_factors, form)
 all_factors <- left_join(all_factors, consistency)
+all_factors <- left_join(all_factors, dfs_avg)
 
 final <- all_factors %>%
   unique() %>%
   group_by(ID) %>%
-  select(c(ID, name = helper2, talent, opportunity, durability, form, consistency)) 
+  select(c(ID, name = helper2, talent, opportunity, durability, form, consistency, dfs_avg)) 
 
 ```
 
@@ -280,12 +292,6 @@ fixed_data <- joined_data %>%
 ```
 
 
-```{r SAVE fixed_data for use in shiny app}
-
-write_csv(fixed_data, "sc_data_for_shiny.csv")
-```
-
-
 ```{r RESCALE and PREDICT}
 
 # RESCALE VARIABLES
@@ -298,56 +304,51 @@ complete_data <- fixed_data %>%
   mutate(weighted_consistency = round(rescale(consistency, to = c(0.01, consistency_weight)), 2)) %>%
   mutate(rating = (weighted_talent + weighted_opportunity + weighted_durability + weighted_form + weighted_consistency))
 
-
-dfs_avg <- complete_data %>% group_by(helper2) %>% summarise(dfs_avg = mean(dfs_score_2020)) %>% ungroup()
-
-complete_data <- left_join(complete_data, dfs_avg)
-complete_data <- unique(complete_data)
-######################
-# PREDICTIONS
-######################
-
-# create fitlered datasets for STEP 3
-playing        <- complete_data %>% filter(`2020_Average` > 20)
-rating_playing <- complete_data %>% filter(`2020_Average` > 20 & rating > 0)
-
-
-
-# STEP 1: get max price and max score for last year
-max_price     <- max(complete_data$Price)
-max_score     <- max(complete_data$`2020_Average`) 
-
-# STEP 2: divide max price by max score to get MAGIC number
-magic_number  <- (max_price/max_score) 
-
-# STEP 3: get average of last year and average of rating (excluding 0)
-avg_last_year <- mean(playing$`2020_Average`)
-rating_avg    <- mean(rating_playing$rating)
-
-# STEP 4: divide last year avg by rating to get difference factor
-diff_factor   <- (avg_last_year/rating_avg)
-
-# STEP 5: multiple rating by the difference factor to get PROJ SCORE
-proj_score  <- complete_data %>% mutate(proj_score = (rating * diff_factor))
-
-# STEP 6: multiple proj score by magic number to get PROJ SALARY
-proj_price  <- proj_score %>% mutate(proj_salary = proj_score * magic_number)
-
-# ADDITIONAL STEP: if values are way out of line, decrease or increase based on max score
-proj_final  <- proj_price %>% mutate(proj_salary     = round(proj_salary * 0.98, 0),
-                                         proj_score  = round(proj_score  * 0.96, 0),
-                                         value       = round(proj_salary - Price, 0)) %>%
-  select(c(Name, Team, Position, proj_score, proj_salary, Price, value, `2020_Games`, `2020_Average`,
-           talent, opportunity, durability, form, consistency, weighted_talent, weighted_opportunity,
-           weighted_durability, weighted_form, weighted_consistency, manual_weight)) %>%
-  arrange(desc(proj_salary))
-
 ```
 
 
-```{r SAVE to csv}
+```{r PROJECTIONS}
 
-write.csv(proj_final, "Data/projections_2021.csv")
+# Finds difference factor which is used to multiple model_raw results to get a realistic projection
+
+# remove players who averaged below 30
+
+model_dataset   <- complete_data %>% filter(dfs_avg > 30) 
+median_dfs      <- median(model_dataset$dfs_avg)
+median_model    <- median(model_dataset$rating)
+diff_factor     <- median_dfs / median_model                        # used 59 as it was the average between median and visual
+
+
+# model projected scores
+
+projections <- 
+  model_dataset %>% mutate(projected = (rating * diff_factor) * 0.95)
+
+
+# ADP
+```
+
+
+```{r GET REPLACMENT LEVEL VALUES}
+# get replacment level values for each position
+def_replacment <- projections %>% filter(Position == "DEF") %>% arrange(desc(projected)) %>% slice(50) %>% select(replace_value = projected)
+mid_replacment <- projections %>% filter(Position == "MID") %>% arrange(desc(projected)) %>% slice(70) %>% select(replace_value = projected)
+ruc_replacment <- projections %>% filter(Position == "RUC") %>% arrange(desc(projected)) %>% slice(10) %>% select(replace_value = projected)
+fwd_replacment <- projections %>% filter(Position == "FWD") %>% arrange(desc(projected)) %>% slice(50) %>% select(replace_value = projected)
+
+# combine back together
+adp_dataset <- rbind(def_replacment, mid_replacment, ruc_replacment, fwd_replacment)
+# Calculate ADP
+adp_dataset <- projections %>% mutate(replace_value = case_when(Position == "DEF" ~ def_replacment$replace_value,
+                                                                Position == "MID" ~ mid_replacment$replace_value,
+                                                                Position == "RUC" ~ ruc_replacment$replace_value,
+                                                                Position == "FWD" ~ fwd_replacment$replace_value)) %>%
+  select(c(Name, Team, Position, Proj = projected, replace_value))
+```
+
+
+```{r SAVE AS CSV}
+write.csv(adp_dataset, "dfs_adp.csv")
 ```
 
 

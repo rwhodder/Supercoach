@@ -4,9 +4,9 @@ Harrison Jones,ESS,FWD,123900,60,,Isaac Chugg,COL,DEF,102400,55,FWD,,,,Good,64
 Will Phillips,NME,MID,198300,64,,Finlay Macrae,COL,MID,126300,58,FWD,,,,Above avg,60
 Braeden Campbell,SYD,MID,189300,64,,Luke Valente,FRE,MID,123900,55,,,,,avg,55
 Braeden Campbell,SYD,FWD,189300,64,,Mark Hutchings,WCE,MID,157600,60,FWD,,,,below avg,53
-Archie Perkins,ESS,FWD,171300,64,,Matt Flynn,GWS,RUC,123900,65,,,,,poor,48
+Archie Perkins,ESS,FWD,171300,64,,Josh Treacy,FRE,RUC,102400,68,FWD,,,,poor,48
 Archie Perkins,ESS,MID,171300,64,,Will Kelly,COL,FWD,135400,60,,,,,,
-Tom Powell,NME,MID,153300,64,,Josh Treacy,FRE,RUC,102400,68,FWD,,,,,
+Tom Powell,NME,MID,153300,64,,Tom Fullarton,BRI,FWD,128900,60,RUC,,,,,
 Will Gould,SYD,DEF,123900,64,,,,,,,,,,,,
 Trey Ruscoe,COL,FWD,206800,60,,,,,,,,,,,,
 Bailey J. Williams,WCE,RUC,193400,60,,,,,,,,,,,,
@@ -15,8 +15,6 @@ Sam Flanders,GCS,FWD,192300,60,,,,,,,,,,,,
 Jonathon Patton,HAW,FWD,189800,60,,,,,,,,,,,,
 Neville Jetta,MEL,DEF,186300,60,,,,,,,,,,,,
 Lachlan Jones,POR,DEF,139800,60,,,,,,,,,,,,
-Tom Fullarton,BRI,FWD,128900,60,,,,,,,,,,,,
-Tom Fullarton,BRI,RUC,128900,60,,,,,,,,,,,,
 James Rowe,ADE,FWD,117300,60,,,,,,,,,,,,
 Connor Downie,HAW,MID,117300,60,,,,,,,,,,,,
 Paddy Dow,CAR,MID,202400,55,,,,,,,,,,,,
@@ -266,3 +264,4 @@ Taj Schofield,POR,MID,102400,45,,,,,,,,,,,,
 Tariek Newchurch,ADE,MID,102400,45,,,,,,,,,,,,
 Will Shaw,GWS,DEF,102400,45,,,,,,,,,,,,
 Zane Trew,WCE,MID,102400,45,,,,,,,,,,,,
+Matt Flynn,GWS,RUC,123900,70,,,,,,,,,,,,
