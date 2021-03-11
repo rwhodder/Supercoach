@@ -251,11 +251,11 @@ final_updated <- final %>%
   
 # WEIGHTINGS
 
-talent_weight      = 20
-opportunity_weight = 13
+talent_weight      = 25
 durability_weight  = 8
-consistency_weight = 5
-form_weight        = 8
+opportunity_weight = 5
+consistency_weight = 8
+form_weight        = 5
 
 # ---------------------------------------------------------------------------------------------------------------------#
 
@@ -299,7 +299,7 @@ complete_data <- fixed_data %>%
   mutate(rating = (weighted_talent + weighted_opportunity + weighted_durability + weighted_form + weighted_consistency))
 
 
-dfs_avg <- complete_data %>% group_by(helper2) %>% summarise(dfs_avg = mean(dfs_score_2020)) %>% ungroup()
+dfs_avg <- complete_data %>% group_by(helper2) %>% summarise(dfs_avg = mean(`2020_Average`)) %>% ungroup()
 
 complete_data <- left_join(complete_data, dfs_avg)
 complete_data <- unique(complete_data)
@@ -334,8 +334,8 @@ proj_score  <- complete_data %>% mutate(proj_score = (rating * diff_factor))
 proj_price  <- proj_score %>% mutate(proj_salary = proj_score * magic_number)
 
 # ADDITIONAL STEP: if values are way out of line, decrease or increase based on max score
-proj_final  <- proj_price %>% mutate(proj_salary     = round(proj_salary * 0.98, 0),
-                                         proj_score  = round(proj_score  * 0.96, 0),
+proj_final  <- proj_price %>% mutate(proj_salary     = round(proj_salary * 0.95, 0),
+                                         proj_score  = round(proj_score  * 0.93, 0),
                                          value       = round(proj_salary - Price, 0)) %>%
   select(c(Name, Team, Position, proj_score, proj_salary, Price, value, `2020_Games`, `2020_Average`,
            talent, opportunity, durability, form, consistency, weighted_talent, weighted_opportunity,

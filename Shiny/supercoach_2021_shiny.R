@@ -19,7 +19,7 @@ library(gfonts)
 ui <-  
   dashboardPage(
 
- 
+    
   
   # App Title ---  
     dashboardHeader(title = "Supercoach Optimizer"),
@@ -28,6 +28,7 @@ ui <-
     # Sidebar layout with input and definitions
     dashboardSidebar( 
       
+    
      
       fileInput(inputId = "file1", 
                 label   = "Choose CSV File"),
@@ -37,18 +38,13 @@ ui <-
       selectInput(inputId = "bench1", label = "Defence Bench 1",  choices = "", width="200px"),
      
       selectInput(inputId = "bench2", label = "Defence Bench 2",  choices = "", width="200px"),
-      br(),
-      br(),
-      br(),
+      
       selectInput(inputId = "bench3", label = "Midfield Bench 1", choices = "", width="200px"),
       selectInput(inputId = "bench4", label = "Midfield Bench 2", choices = "", width="200px"),
       selectInput(inputId = "bench5", label = "Midfield Bench 3", choices = "", width="200px"),
-      br(),
-      br(),
+      
       selectInput(inputId = "bench6", label = "Ruck Bench 1",     choices = "", width="200px"),
-      br(),
-      br(),
-      br(),
+      
       selectInput(inputId = "bench7", label = "Forward Bench 1",  choices = "", width="200px"),
       selectInput(inputId = "bench8", label = "Forward Bench 2",  choices = "", width="200px"),
       
@@ -83,25 +79,29 @@ ui <-
       textOutput("salary"),
       tags$style(type="text/css", "#salary { height: 50px; width: 100%; text-align:center; font-size: 25px; display: block;}")
       
+     
+      
                   ),
 
-      
+  
       # Main Panel for displaying outputs ---
       dashboardBody(                                                      # specifies what is in the main panel
         fluidRow(
           br(),
           
         column(width = 6,
-               box(width = NULL, tableOutput("d1")),
+               box(title = HTML('<p style="color:black; font-size: 12pt; text-align:center">DEFENCE</p>'), width = NULL, tableOutput("d1")),
                 br(),
-               box(width = NULL, tableOutput("m1")),
+               box(title = HTML('<p style="color:black; font-size: 12pt; text-align:center">MIDFIELD</p>'), width = NULL, tableOutput("m1")),
                 br(),
-               box(width = NULL, tableOutput("r1")),
+               box(title = HTML('<p style="color:black; font-size: 12pt; text-align:center">RUCK</p>'), width = NULL, tableOutput("r1")),
                 br(),
-               box(width = NULL, tableOutput("f1")))
-      
+               box(title = HTML('<p style="color:black; font-size: 12pt; text-align:center">FORWARD</p>'), width = NULL, tableOutput("f1"))),
+        column(width = 6,
+                box(title = HTML('<p style="color:black; font-size: 12pt; text-align:center">POSITIONAL ALLOCATION</p>'), width = NULL, tableOutput("cost")))
       
         )
+        
       ),
     tags$head(tags$style(HTML('* {font-family: "lato"};')))
 )
@@ -127,14 +127,14 @@ server <- function(input, output, session) {
     ruc <- dplyr::filter(dataset, Position == "RUC") %>% dplyr::filter(Price < 207400) %>% select(Name) 
     fwd <- dplyr::filter(dataset, Position == "FWD") %>% dplyr::filter(Price < 207400) %>% select(Name) 
     
-    updateSelectInput(session, "bench1", label = "Defence Bench 1",  choices = def)
-    updateSelectInput(session, "bench2", label = "Defence Bench 2",  choices = def)
-    updateSelectInput(session, "bench3", label = "Midfield Bench 1", choices = mid)
-    updateSelectInput(session, "bench4", label = "Midfield Bench 2", choices = mid)
-    updateSelectInput(session, "bench5", label = "Midfield Bench 3", choices = mid)
-    updateSelectInput(session, "bench6", label = "Ruck Bench 1",     choices = ruc)
-    updateSelectInput(session, "bench7", label = "Forward Bench 1",  choices = fwd)
-    updateSelectInput(session, "bench8", label = "Forward Bench 2",  choices = fwd)
+    updateSelectInput(session, "bench1", label = "Defence Bench 1",  choices = def, selected = "Jacob Koschitzke")
+    updateSelectInput(session, "bench2", label = "Defence Bench 2",  choices = def, selected = "Thomas Highmore")
+    updateSelectInput(session, "bench3", label = "Midfield Bench 1", choices = mid, selected = "James Jordon")
+    updateSelectInput(session, "bench4", label = "Midfield Bench 2", choices = mid, selected = "Errol Gulden")
+    updateSelectInput(session, "bench5", label = "Midfield Bench 3", choices = mid, selected = "Connor Downie")
+    updateSelectInput(session, "bench6", label = "Ruck Bench 1",     choices = ruc, selected = "Tom Fullarton")
+    updateSelectInput(session, "bench7", label = "Forward Bench 1",  choices = fwd, selected = "James Rowe")
+    updateSelectInput(session, "bench8", label = "Forward Bench 2",  choices = fwd, selected = "Alex Waterman")
     
     
   
@@ -219,6 +219,12 @@ server <- function(input, output, session) {
     sum_price <- (10000000 - (sum(optsolution$Price) + bench_cost))
     sum_score <- sum(optsolution$Proj_Score)
   
+    # CALULATE POSITIONAL SPEND
+    position_spend <- optsolution2 %>% 
+      group_by(Position) %>%
+      summarise(Cost = sum(Price),
+                "Salary Allocation %" = (Cost/10000000)*100) %>%
+      add_row(Position = "BENCH", Cost = bench_cost, "Salary Allocation %" = (bench_cost/10000000)*100)
   
   
   ######## THIS RENDERS THE DATAFRAME##################################
@@ -233,6 +239,9 @@ server <- function(input, output, session) {
    
   output$salary  <- renderText({ sum_price })
     
+  
+  
+  output$cost  <- renderTable({ position_spend }, digits = 0)
       
     })
     
