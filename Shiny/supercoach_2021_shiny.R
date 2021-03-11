@@ -129,12 +129,12 @@ server <- function(input, output, session) {
     
     updateSelectInput(session, "bench1", label = "Defence Bench 1",  choices = def, selected = "Jacob Koschitzke")
     updateSelectInput(session, "bench2", label = "Defence Bench 2",  choices = def, selected = "Thomas Highmore")
-    updateSelectInput(session, "bench3", label = "Midfield Bench 1", choices = mid, selected = "James Jordon")
+    updateSelectInput(session, "bench3", label = "Midfield Bench 1", choices = mid, selected = "Tyler Brockman")
     updateSelectInput(session, "bench4", label = "Midfield Bench 2", choices = mid, selected = "Errol Gulden")
     updateSelectInput(session, "bench5", label = "Midfield Bench 3", choices = mid, selected = "Connor Downie")
-    updateSelectInput(session, "bench6", label = "Ruck Bench 1",     choices = ruc, selected = "Tom Fullarton")
+    updateSelectInput(session, "bench6", label = "Ruck Bench 1",     choices = ruc, selected = "Lloyd Meek")
     updateSelectInput(session, "bench7", label = "Forward Bench 1",  choices = fwd, selected = "James Rowe")
-    updateSelectInput(session, "bench8", label = "Forward Bench 2",  choices = fwd, selected = "Alex Waterman")
+    updateSelectInput(session, "bench8", label = "Forward Bench 2",  choices = fwd, selected = "Tom Fullarton")
     
     
   

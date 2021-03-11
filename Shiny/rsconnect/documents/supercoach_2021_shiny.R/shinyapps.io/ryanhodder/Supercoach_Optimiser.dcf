@@ -5,9 +5,9 @@ account: ryanhodder
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 3721191
-bundleId: 4319515
+bundleId: 4328796
 url: https://supercoachoptimizer.shinyapps.io/Supercoach_Optimiser/
-when: 1615271720.25946
+when: 1615431470.35173
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: Data/projections_2021_manual_input.xlsx|Data/ryan_only.csv|Data/ryan_only.xlsx|Data/sc_data.xlsx

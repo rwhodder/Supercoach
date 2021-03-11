@@ -9,26 +9,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r READ data, message = FALSE, warning = FALSE}
 
-supercoach_proj <- read_excel("Data/projections_2021_manual_input.xlsx") %>% select(c(Name, Team, Position, Proj_Score = updated_proj, Price))
-rookies         <- read_csv("Data/rookies.csv")          %>% select(c(Name, Team, Position, Proj_Score = proj_score, Price))
+supercoach_proj <- read_csv("Data/supercoach_data.csv") %>% select(c(Name, Team, Position, Proj_Score , Price))
 
-# attach rookies to supercoach_proj
-dataset <- supercoach_proj %>% 
-  dplyr::filter(Price > 207300) %>%
-  rbind(rookies) %>%
-  na.omit()
+
 ```
 
 
 ```{r GET REPLACMENT LEVEL VALUES}
 # get replacment level values for each position
-def_replacment <- dataset %>% filter(Position == "DEF") %>% arrange(desc(Proj_Score)) %>% slice(40) %>% select(replace_value = Proj_Score)
-mid_replacment <- dataset %>% filter(Position == "MID") %>% arrange(desc(Proj_Score)) %>% slice(50) %>% select(replace_value = Proj_Score)
-ruc_replacment <- dataset %>% filter(Position == "RUC") %>% arrange(desc(Proj_Score)) %>% slice(10) %>% select(replace_value = Proj_Score)
-fwd_replacment <- dataset %>% filter(Position == "FWD") %>% arrange(desc(Proj_Score)) %>% slice(40) %>% select(replace_value = Proj_Score)
+def_replacment <- supercoach_proj %>% filter(Position == "DEF") %>% arrange(desc(Proj_Score)) %>% slice(40) %>% select(replace_value = Proj_Score)
+mid_replacment <- supercoach_proj %>% filter(Position == "MID") %>% arrange(desc(Proj_Score)) %>% slice(50) %>% select(replace_value = Proj_Score)
+ruc_replacment <- supercoach_proj %>% filter(Position == "RUC") %>% arrange(desc(Proj_Score)) %>% slice(10) %>% select(replace_value = Proj_Score)
+fwd_replacment <- supercoach_proj %>% filter(Position == "FWD") %>% arrange(desc(Proj_Score)) %>% slice(40) %>% select(replace_value = Proj_Score)
 
 # Calculate ADP
-adp_dataset <- dataset %>% mutate(adp = case_when(Position == "DEF" ~ Proj_Score - def_replacment$replace_value,
+adp_dataset <- supercoach_proj %>% mutate(adp = case_when(Position == "DEF" ~ Proj_Score - def_replacment$replace_value,
                                                   Position == "MID" ~ Proj_Score - mid_replacment$replace_value,
                                                   Position == "RUC" ~ Proj_Score - ruc_replacment$replace_value,
                                                   Position == "FWD" ~ Proj_Score - fwd_replacment$replace_value))
@@ -36,6 +31,6 @@ adp_dataset <- dataset %>% mutate(adp = case_when(Position == "DEF" ~ Proj_Score
 
 
 ```{r SAVE AS CSV}
-write.csv(adp_dataset, "adp.csv")
+write.csv(adp_dataset, "Data/adp.csv")
 ```
 
